@@ -1,0 +1,21 @@
+<!doctype html><html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>moamoa · 발견하고, 모아두고, 함께 즐겨요</title>
+<meta name="description" content="서울 전시·미술, 박람회, 지역·계절 축제를 한곳에서 찾아보세요.">
+<meta name="_csrf" th:content="${_csrf.token}"><meta name="_csrf_header" th:content="${_csrf.headerName}">
+<link rel="stylesheet" href="/css/app.css"><script defer src="/js/app.js"></script></head>
+<body>
+<header th:fragment="nav" class="header"><a class="brand" href="/" aria-label="moamoa 홈">moamoa<span>●</span></a>
+<nav aria-label="메인 메뉴"><a href="/contests">행사 둘러보기</a><a href="/mypage/favorites">모아둔 행사</a><a href="/mypage/interests">관심분야·알림</a></nav>
+<div class="account"><a th:if="${currentUser == null}" href="/auth/login">로그인</a><a th:if="${currentUser == null}" class="button small" href="/auth/signup">시작하기</a><span th:if="${currentUser != null}" th:text="|${currentUser.nickname()}님|"></span><button th:if="${currentUser != null}" class="text-button" data-logout>로그아웃</button></div></header>
+<div th:fragment="cards">
+<div class="empty" th:if="${#lists.isEmpty(events)}"><span class="empty-icon">↗</span><h2>아직 발견한 행사가 없어요</h2><p>검색 조건을 바꾸거나 나중에 다시 확인해주세요.</p><a href="/contests">전체 행사 보기 →</a></div>
+<div class="cards" th:unless="${#lists.isEmpty(events)}"><article class="card" th:each="event : ${events}">
+<a class="poster" th:href="@{/contests/{id}(id=${event.id})}" th:classappend="${event.category.name().toLowerCase()}"><img loading="lazy" referrerpolicy="no-referrer" th:if="${event.imageUrl != null}" th:src="${event.imageUrl}" alt=""><span class="poster-label" th:text="${event.category.label}"></span></a>
+<div class="card-content"><div class="card-meta"><span th:text="${event.district ?: '서울'}"></span><span class="badge" th:text="${event.dayBadge(today)}"></span></div>
+<h3><a th:href="@{/contests/{id}(id=${event.id})}" th:text="${event.title}"></a></h3>
+<p class="dates" th:text="${event.period}"></p>
+<div class="card-bottom"><span th:text="${event.fee == '무료' ? '무료 관람' : '요금 확인'}"></span><button class="save" th:attr="data-favorite=${event.id},data-saved=${favoriteIds.contains(event.id)},aria-pressed=${favoriteIds.contains(event.id)}" th:text="${favoriteIds.contains(event.id) ? '♥ 모아둠' : '♡ 모아두기'}"></button></div></div>
+</article></div></div>
+<footer th:fragment="footer" class="footer"><a class="brand" href="/">moamoa<span>●</span></a><p>마음이 가는 경험을 모으는 곳.</p><p class="source">행사 정보 제공: 서울특별시 · 서울문화포털 (공공누리 제1유형)<br>일정과 이용 요금은 방문 전 원본 공고에서 확인해주세요.</p><div id="toast" role="status" aria-live="polite"></div></footer>
+</body></html>
