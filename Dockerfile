@@ -14,4 +14,4 @@ ENV PORT=8080
 ENV SCHEDULING_ENABLED=true
 ENV SECURE_COOKIE=true
 
-ENTRYPOINT ["java", "-Dserver.port=${PORT:-8080}", "-jar", "app.jar"]
+ENTRYPOINT ["/bin/sh", "-c", "java -Dserver.port=${PORT:-8080} -jar app.jar"]
