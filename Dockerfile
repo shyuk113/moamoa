@@ -2,6 +2,7 @@
 FROM eclipse-temurin:21-jdk AS builder
 WORKDIR /app
 COPY . .
+COPY gradle/wrapper gradle/wrapper
 RUN chmod +x gradlew && ./gradlew bootJar
 
 # Runtime stage
