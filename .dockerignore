@@ -5,7 +5,6 @@
 .runtime
 build
 docs
-gradle
 node_modules
 *.md
 *.log
