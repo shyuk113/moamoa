@@ -1,0 +1,14 @@
+.git
+.gitignore
+.gradle
+.idea
+.runtime
+build
+docs
+gradle
+node_modules
+*.md
+*.log
+.DS_Store
+.env
+.env.local
