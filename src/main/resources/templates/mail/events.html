@@ -1,0 +1,1 @@
+<!doctype html><html lang="ko" xmlns:th="http://www.thymeleaf.org"><body><h1>moamoa에서 모아온 소식</h1><article th:each="c:${contests}"><h2><a th:href="|${baseUrl}/contests/${c.id}|" th:text="${c.title}"></a></h2><p th:text="|${c.startDate} — ${c.endDate} (${c.dateLabel})|"></p></article><p><a th:href="|${baseUrl}/mypage/interests|">관심분야·알림 설정</a></p></body></html>
