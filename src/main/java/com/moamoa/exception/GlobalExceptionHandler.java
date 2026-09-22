@@ -25,7 +25,10 @@ public class GlobalExceptionHandler {
     return response(HttpStatus.BAD_REQUEST, "입력값을 확인해주세요. 비밀번호는 10~64자, 닉네임은 1~40자입니다.", r);
   }
 
-  @ExceptionHandler(DataIntegrityViolationException.class)
+  @ExceptionHandler({
+    DataIntegrityViolationException.class,
+    org.springframework.dao.OptimisticLockingFailureException.class
+  })
   public Object conflict(Exception e, HttpServletRequest r) {
     return response(HttpStatus.CONFLICT, "이미 등록된 항목입니다. 입력값을 확인해주세요.", r);
   }

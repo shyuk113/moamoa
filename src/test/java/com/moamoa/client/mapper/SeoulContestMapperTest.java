@@ -108,4 +108,28 @@ class SeoulContestMapperTest {
     c.setType(ContestType.CONTEST);
     assertThat(c.isPermanent()).isFalse();
   }
+
+  @Test
+  void importsVerifiedLocationFieldsAndDiscardsInvalidCoordinatesOnly() throws Exception {
+    var json = new com.fasterxml.jackson.databind.ObjectMapper();
+    String payload =
+        """
+        {"CODENAME":"전시/미술","TITLE":"지도 테스트","PLACE":"서울","STRTDATE":"2026-09-01",
+         "END_DATE":"2026-10-01","LAT":"37.5512","LOT":"127.1573","INQUIRY":"02-123-4567"}
+        """;
+    var c =
+        mapper.map(json.readValue(payload, com.moamoa.client.seoul.SeoulEvent.class)).orElseThrow();
+    assertThat(c.getLatitude()).isEqualTo(37.5512);
+    assertThat(c.getLongitude()).isEqualTo(127.1573);
+    assertThat(c.getContactPhone()).isEqualTo("02-123-4567");
+    var invalid =
+        mapper
+            .map(
+                json.readValue(
+                    payload.replace("37.5512", "NaN"), com.moamoa.client.seoul.SeoulEvent.class))
+            .orElseThrow();
+    assertThat(invalid.getLatitude()).isNull();
+    assertThat(invalid.getLongitude()).isNull();
+    assertThat(invalid.getTitle()).isEqualTo("지도 테스트");
+  }
 }

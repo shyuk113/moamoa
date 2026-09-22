@@ -55,6 +55,7 @@ class MoamoaIntegrationTest {
   }
 
   @Autowired MockMvc mvc;
+  @Autowired org.springframework.security.web.SecurityFilterChain securityFilterChain;
   @Autowired ContestRepository contests;
   @Autowired UserRepository users;
   @Autowired InterestRepository interests;
@@ -68,10 +69,27 @@ class MoamoaIntegrationTest {
   @Autowired NotificationService notifications;
   @Autowired JwtTokenProvider tokens;
   @Autowired Clock clock;
+  @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+  @Autowired EventGuideRepository guides;
+  @Autowired EventReviewRepository reviews;
+  @Autowired com.moamoa.service.contest.EventGuideService guideService;
+  @Autowired com.moamoa.service.contest.EventReviewService reviewService;
   @MockitoBean EmailSenderService mail;
 
   @BeforeEach
   void clean() {
+    // csrf() replaces the shared filter repository with a session-based test repository.
+    // Restore production cookie behavior so browser-flow coverage is order independent.
+    securityFilterChain.getFilters().stream()
+        .filter(org.springframework.security.web.csrf.CsrfFilter.class::isInstance)
+        .map(org.springframework.security.web.csrf.CsrfFilter.class::cast)
+        .forEach(
+            filter ->
+                org.springframework.test.util.ReflectionTestUtils.setField(
+                    filter,
+                    "tokenRepository",
+                    org.springframework.security.web.csrf.CookieCsrfTokenRepository
+                        .withHttpOnlyFalse()));
     logs.deleteAll();
     favorites.deleteAll();
     interests.deleteAll();
@@ -82,6 +100,285 @@ class MoamoaIntegrationTest {
 
   private User user(String email) {
     return auth.signup(new Signup(email, "Password123!", "테스터"));
+  }
+
+  private Cookie access(User u) {
+    return new Cookie("ACCESS_TOKEN", tokens.issue(u));
+  }
+
+  @Test
+  void visitorGuidesRequireAdminAndSurviveSourceUpdates() throws Exception {
+    var c = event("guide", ContestCategory.ART, 0, 7);
+    var ordinary = user("ordinary@example.test");
+    var admin = user("admin@example.test");
+    admin.setRole(Role.ADMIN);
+    users.saveAndFlush(admin);
+    String endpoint = "/api/admin/contests/" + c.getId() + "/guide/ko";
+    String body =
+        """
+        {"transit":"지하철 1번 출구","parking":"주차 불가","accessibility":"경사로 있음",
+         "latitude":37.57,"longitude":126.98,"sourceUrl":"https://example.test/official",
+         "gallery":"https://example.test/image.jpg","videoId":"abcdefghijk","attribution":"Organizer, used with permission"}
+        """;
+    mvc.perform(
+            put(endpoint)
+                .cookie(access(ordinary))
+                .with(csrf())
+                .contentType("application/json")
+                .content(body))
+        .andExpect(status().isForbidden());
+    mvc.perform(put(endpoint).cookie(access(admin)).contentType("application/json").content(body))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            put(endpoint)
+                .cookie(access(admin))
+                .with(csrf())
+                .contentType("application/json")
+                .content(body))
+        .andExpect(status().isOk());
+    c.setTitle("Source updated");
+    writer.upsert(c);
+    assertThat(guides.findByContestIdAndLanguage(c.getId(), "ko").orElseThrow().getParking())
+        .isEqualTo("주차 불가");
+    mvc.perform(get("/contests/" + c.getId()))
+        .andExpect(status().isOk())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("지하철 1번 출구")))
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.containsString("openstreetmap.org/export/embed.html")));
+    mvc.perform(get("/admin/contests/" + c.getId() + "/guide").cookie(access(admin)))
+        .andExpect(status().isOk());
+    mvc.perform(
+            put(endpoint)
+                .cookie(access(admin))
+                .with(csrf())
+                .contentType("application/json")
+                .content(body.replace("https://example.test/image.jpg", "javascript:alert(1)")))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            put(endpoint)
+                .cookie(access(admin))
+                .with(csrf())
+                .contentType("application/json")
+                .content(body.replace("37.57", "91")))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            put(endpoint)
+                .cookie(access(admin))
+                .with(csrf())
+                .contentType("application/json")
+                .content(body.replace("Organizer, used with permission", "")))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void englishPreferenceAndReviewedTranslationRenderWithFallback() throws Exception {
+    var c = event("english", ContestCategory.ART, 0, 7);
+    var admin = user("translation@example.test");
+    admin.setRole(Role.ADMIN);
+    users.saveAndFlush(admin);
+    mvc.perform(
+            put("/api/admin/contests/" + c.getId() + "/guide/en")
+                .cookie(access(admin))
+                .with(csrf())
+                .contentType("application/json")
+                .content(
+                    "{\"title\":\"Seoul art walk\",\"sourceUrl\":\"https://example.test/en\"}"))
+        .andExpect(status().isOk());
+    var response =
+        mvc.perform(get("/contests/" + c.getId()).param("lang", "en"))
+            .andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Seoul art walk")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Plan your visit")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Not provided.")))
+            .andReturn();
+    Cookie language = response.getResponse().getCookie("MOAMOA_LANG");
+    assertThat(language).isNotNull();
+    var search = new ContestSearchCondition();
+    search.setKeyword("Seoul art");
+    assertThat(queryService.search(search, 0, null).page().getContent())
+        .extracting(Contest::getId)
+        .containsExactly(c.getId());
+    for (String path : List.of("/mypage/favorites", "/mypage/interests"))
+      mvc.perform(get(path).cookie(language, access(admin))).andExpect(status().isOk());
+    mvc.perform(get("/contests").cookie(language))
+        .andExpect(status().isOk())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("Seoul art walk")));
+    for (String path :
+        List.of(
+            "/", "/auth/login", "/auth/signup", "/auth/forgot-password", "/auth/reset-password"))
+      mvc.perform(get(path).cookie(language))
+          .andExpect(status().isOk())
+          .andExpect(content().string(org.hamcrest.Matchers.containsString("Explore events")));
+    mvc.perform(get("/contests/" + c.getId()).param("lang", "zz")).andExpect(status().isOk());
+  }
+
+  @Test
+  void reviewsAreModeratedRateLimitedEscapedAndOwnerScoped() throws Exception {
+    var c = event("reviews", ContestCategory.ART, -1, 7);
+    var author = user("author@example.test");
+    var other = user("other@example.test");
+    var admin = user("moderator@example.test");
+    admin.setRole(Role.ADMIN);
+    users.saveAndFlush(admin);
+    String path = "/api/reviews/events/" + c.getId();
+    String body = "{\"rating\":5,\"body\":\"<script>alert(1)</script> Great exhibition\"}";
+    mvc.perform(put(path).with(csrf()).contentType("application/json").content(body))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(
+            put(path)
+                .cookie(access(author))
+                .with(csrf())
+                .contentType("application/json")
+                .content(body.replace("5", "6")))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            put(path)
+                .cookie(access(author))
+                .with(csrf())
+                .contentType("application/json")
+                .content(body))
+        .andExpect(status().isOk());
+    var r = reviews.findByContestIdAndUserId(c.getId(), author.getId()).orElseThrow();
+    assertThat(reviews.stats(c.getId()).getCount()).isZero();
+    mvc.perform(
+            put(path)
+                .cookie(access(author))
+                .with(csrf())
+                .contentType("application/json")
+                .content(body))
+        .andExpect(status().isTooManyRequests());
+    mvc.perform(delete("/api/reviews/" + r.getId()).cookie(access(other)).with(csrf()))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            put("/api/admin/reviews/" + r.getId())
+                .cookie(access(other))
+                .with(csrf())
+                .contentType("application/json")
+                .content("{\"status\":\"APPROVED\",\"version\":" + r.getVersion() + "}"))
+        .andExpect(status().isForbidden());
+    mvc.perform(get("/admin/reviews").cookie(access(admin))).andExpect(status().isOk());
+    mvc.perform(
+            put("/api/admin/reviews/" + r.getId())
+                .cookie(access(admin))
+                .with(csrf())
+                .contentType("application/json")
+                .content("{\"status\":\"APPROVED\",\"version\":" + r.getVersion() + "}"))
+        .andExpect(status().isOk());
+    assertThat(reviews.stats(c.getId()).getAverage()).isEqualTo(5.0);
+    mvc.perform(get("/contests/" + c.getId()))
+        .andExpect(status().isOk())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("&lt;script&gt;")))
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("<script>alert(1)"))));
+    reviewService.moderate(
+        r.getId(),
+        EventReview.Status.HIDDEN,
+        reviews.findById(r.getId()).orElseThrow().getVersion());
+    assertThat(reviews.stats(c.getId()).getCount()).isZero();
+    mvc.perform(delete("/api/reviews/" + r.getId()).cookie(access(author)).with(csrf()))
+        .andExpect(status().isOk());
+    assertThat(reviews.findById(r.getId())).isEmpty();
+  }
+
+  @Test
+  void editedPublishedReviewRequiresFreshModerationVersion() throws Exception {
+    var c = event("review-version", ContestCategory.ART, 0, 7);
+    var author = user("version-author@example.test");
+    var admin = user("version-admin@example.test");
+    admin.setRole(Role.ADMIN);
+    users.saveAndFlush(admin);
+    reviewService.save(c.getId(), author.getId(), 5, "Originally reviewed text");
+    var review = reviews.findByContestIdAndUserId(c.getId(), author.getId()).orElseThrow();
+    reviewService.moderate(review.getId(), EventReview.Status.APPROVED, review.getVersion());
+    assertThat(reviews.stats(c.getId()).getAverage()).isEqualTo(5.0);
+    long staleVersion = reviews.findById(review.getId()).orElseThrow().getVersion();
+    mvc.perform(get("/admin/reviews").param("status", "APPROVED").cookie(access(admin)))
+        .andExpect(status().isOk())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"version\"")));
+    jdbc.update(
+        "update event_reviews set updated_at=? where id=?",
+        java.sql.Timestamp.from(clock.instant().minusSeconds(120)),
+        review.getId());
+    mvc.perform(
+            put("/api/reviews/events/" + c.getId())
+                .cookie(access(author))
+                .with(csrf())
+                .contentType("application/json")
+                .content("{\"rating\":1,\"body\":\"Changed and not reviewed\"}"))
+        .andExpect(status().isOk());
+    assertThat(reviews.stats(c.getId()).getCount()).isZero();
+    assertThat(reviews.stats(c.getId()).getAverage()).isNull();
+    mvc.perform(
+            put("/api/admin/reviews/" + review.getId())
+                .cookie(access(admin))
+                .with(csrf())
+                .contentType("application/json")
+                .content("{\"status\":\"APPROVED\",\"version\":" + staleVersion + "}"))
+        .andExpect(status().isConflict());
+    var changed = reviews.findById(review.getId()).orElseThrow();
+    assertThat(changed.getStatus()).isEqualTo(EventReview.Status.PENDING);
+    mvc.perform(get("/contests/" + c.getId()))
+        .andExpect(status().isOk())
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Changed and not reviewed"))));
+    mvc.perform(
+            put("/api/admin/reviews/" + review.getId())
+                .cookie(access(admin))
+                .with(csrf())
+                .contentType("application/json")
+                .content("{\"status\":\"APPROVED\",\"version\":" + changed.getVersion() + "}"))
+        .andExpect(status().isOk());
+    assertThat(reviews.stats(c.getId()).getAverage()).isEqualTo(1.0);
+  }
+
+  @Test
+  void relatedEventsExcludeEndedAndOtherCategoriesAndCalendarUsesExclusiveEnd() throws Exception {
+    var c = event("recommend", ContestCategory.ART, 0, 4);
+    var neighbor = event("neighbor", ContestCategory.ART, 0, 5);
+    event("ended", ContestCategory.ART, -3, -1);
+    event("different", ContestCategory.FAIR, 0, 3);
+    assertThat(
+            contests.related(
+                c.getId(),
+                c.getCategory(),
+                c.getDistrict(),
+                LocalDate.now(clock),
+                org.springframework.data.domain.PageRequest.of(0, 4)))
+        .extracting(Contest::getId)
+        .containsExactly(neighbor.getId());
+    c.setTitle("전시;테스트,한글".repeat(20) + "\r\nBEGIN:BAD");
+    contests.saveAndFlush(c);
+    var response =
+        mvc.perform(get("/contests/" + c.getId() + "/calendar.ics"))
+            .andExpect(status().isOk())
+            .andExpect(
+                header()
+                    .string(
+                        "Content-Disposition", "attachment; filename=moamoa-" + c.getId() + ".ics"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+    assertThat(response)
+        .contains(
+            "DTEND;VALUE=DATE:"
+                + c.getEndDate()
+                    .plusDays(1)
+                    .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE))
+        .doesNotContain("\r\nBEGIN:BAD");
+    for (String line : response.split("\r\n"))
+      assertThat(line.getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+          .isLessThanOrEqualTo(75);
+    c.setEndDate(LocalDate.of(2099, 12, 31));
+    contests.saveAndFlush(c);
+    mvc.perform(get("/contests/" + c.getId() + "/calendar.ics")).andExpect(status().isBadRequest());
   }
 
   private Contest event(String sourceId, ContestCategory category, int start, int end) {

@@ -16,8 +16,18 @@ public class GlobalViewAdvice {
   }
 
   @ModelAttribute
-  public void common(Model model, @AuthenticationPrincipal CustomUserDetails user) {
+  public void common(
+      Model model,
+      @AuthenticationPrincipal CustomUserDetails user,
+      org.springframework.security.core.Authentication authentication,
+      java.util.Locale locale) {
     model.addAttribute("currentUser", user);
+    model.addAttribute(
+        "isAdmin",
+        authentication != null
+            && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")));
+    model.addAttribute("english", "en".equals(locale.getLanguage()));
     model.addAttribute(
         "categories",
         java.util.List.of(

@@ -50,7 +50,9 @@ public class SecurityConfig {
         .csrf(c -> c.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
         .authorizeHttpRequests(
             a ->
-                a.requestMatchers(
+                a.requestMatchers("/admin/**", "/api/admin/**")
+                    .hasRole("ADMIN")
+                    .requestMatchers(
                         "/",
                         "/contests",
                         "/contests/**",
