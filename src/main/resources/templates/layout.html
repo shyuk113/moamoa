@@ -1,21 +1,21 @@
-<!doctype html><html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!doctype html><html lang="ko" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head th:fragment="head"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>moamoa · 발견하고, 모아두고, 함께 즐겨요</title>
+<title th:text="#{app.title}">moamoa</title>
 <meta name="description" content="서울 전시·미술, 박람회, 지역·계절 축제를 한곳에서 찾아보세요.">
 <meta name="_csrf" th:content="${_csrf.token}"><meta name="_csrf_header" th:content="${_csrf.headerName}">
-<link rel="stylesheet" href="/css/app.css"><script defer src="/js/app.js"></script></head>
+<link rel="stylesheet" href="/css/app.css"><link rel="stylesheet" href="/css/experience.css"><script defer src="/js/app.js"></script></head>
 <body>
 <header th:fragment="nav" class="header"><a class="brand" href="/" aria-label="moamoa 홈">moamoa<span>●</span></a>
-<nav aria-label="메인 메뉴"><a href="/contests">행사 둘러보기</a><a href="/mypage/favorites">모아둔 행사</a><a href="/mypage/interests">관심분야·알림</a></nav>
-<div class="account"><a th:if="${currentUser == null}" href="/auth/login">로그인</a><a th:if="${currentUser == null}" class="button small" href="/auth/signup">시작하기</a><span th:if="${currentUser != null}" th:text="|${currentUser.nickname()}님|"></span><button th:if="${currentUser != null}" class="text-button" data-logout>로그아웃</button></div></header>
+<nav aria-label="메인 메뉴"><a href="/contests"><span th:text="#{nav.events}">행사 둘러보기</span></a><a href="/mypage/favorites"><span th:text="#{nav.saved}">모아둔 행사</span></a><a href="/mypage/interests"><span th:text="#{nav.interests}">관심분야·알림</span></a></nav>
+<div class="account"><a href="?lang=ko" data-language="ko" lang="ko" th:attr="aria-current=${#locale.language != 'en' ? 'true' : null}">한국어</a><a href="?lang=en" data-language="en" lang="en" th:attr="aria-current=${#locale.language == 'en' ? 'true' : null}">English</a><a th:if="${isAdmin}" href="/admin/reviews" th:text="#{nav.admin}"></a><a th:if="${currentUser == null}" href="/auth/login" th:text="#{nav.login}"></a><a th:if="${currentUser == null}" class="button small" href="/auth/signup" th:text="#{nav.signup}"></a><span th:if="${currentUser != null}" th:text="${currentUser.nickname()}"></span><button th:if="${currentUser != null}" class="text-button" data-logout th:text="#{nav.logout}"></button></div></header>
 <div th:fragment="cards">
-<div class="empty" th:if="${#lists.isEmpty(events)}"><span class="empty-icon">↗</span><h2>아직 발견한 행사가 없어요</h2><p>검색 조건을 바꾸거나 나중에 다시 확인해주세요.</p><a href="/contests">전체 행사 보기 →</a></div>
+<div class="empty" th:if="${#lists.isEmpty(events)}"><span class="empty-icon">↗</span><h2><span th:text="#{empty.title}">아직 발견한 행사가 없어요</span></h2><p><span th:text="#{empty.body}">검색 조건을 바꾸거나 나중에 다시 확인해주세요.</span></p><a href="/contests"><span th:text="#{empty.all}">전체 행사 보기 →</span></a></div>
 <div class="cards" th:unless="${#lists.isEmpty(events)}"><article class="card" th:each="event : ${events}">
-<a class="poster" th:href="@{/contests/{id}(id=${event.id})}" th:classappend="${event.category.name().toLowerCase()}"><img loading="lazy" referrerpolicy="no-referrer" th:if="${event.imageUrl != null}" th:src="${event.imageUrl}" alt=""><span class="poster-label" th:text="${event.category.label}"></span></a>
-<div class="card-content"><div class="card-meta"><span th:text="${event.district ?: '서울'}"></span><span class="badge" th:text="${event.dayBadge(today)}"></span></div>
-<h3><a th:href="@{/contests/{id}(id=${event.id})}" th:text="${event.title}"></a></h3>
-<p class="dates" th:text="${event.period}"></p>
-<div class="card-bottom"><span th:text="${event.fee == '무료' ? '무료 관람' : '요금 확인'}"></span><button class="save" th:attr="data-favorite=${event.id},data-saved=${favoriteIds.contains(event.id)},aria-pressed=${favoriteIds.contains(event.id)}" th:text="${favoriteIds.contains(event.id) ? '♥ 모아둠' : '♡ 모아두기'}"></button></div></div>
+<a class="poster" th:href="@{/contests/{id}(id=${event.id})}" th:classappend="${event.category.name().toLowerCase()}"><img loading="lazy" referrerpolicy="no-referrer" th:if="${event.imageUrl != null}" th:src="${event.imageUrl}" alt=""><span class="poster-label" th:text="${@eventLabels.category(event.category, #locale)}"></span></a>
+<div class="card-content"><div class="card-meta"><span th:text="${@eventLabels.district(event.district,#locale)}"></span><span class="badge" th:text="${@eventLabels.badge(event, today, #locale)}"></span></div>
+<h3><a th:href="@{/contests/{id}(id=${event.id})}" th:text="${translatedTitles != null and translatedTitles.containsKey(event.id) ? translatedTitles.get(event.id) : event.title}"></a></h3>
+<p class="dates" th:text="${@eventLabels.period(event, #locale)}"></p>
+<div class="card-bottom"><span th:text="${event.fee == '무료' ? #messages.msg('fee.free') : #messages.msg('fee.check')}"></span><button class="save" th:attr="data-favorite=${event.id},data-saved=${favoriteIds.contains(event.id)},aria-pressed=${favoriteIds.contains(event.id)}" th:text="${favoriteIds.contains(event.id) ? #messages.msg('favorite.saved') : #messages.msg('favorite.add')}"></button></div></div>
 </article></div></div>
-<footer th:fragment="footer" class="footer"><a class="brand" href="/">moamoa<span>●</span></a><p>마음이 가는 경험을 모으는 곳.</p><p class="source">행사 정보 제공: 서울특별시 · 서울문화포털 (공공누리 제1유형)<br>일정과 이용 요금은 방문 전 원본 공고에서 확인해주세요.</p><div id="toast" role="status" aria-live="polite"></div></footer>
+<footer th:fragment="footer" class="footer"><a class="brand" href="/">moamoa<span>●</span></a><p><span th:text="#{site.footer}">마음이 가는 경험을 모으는 곳.</span></p><p class="source"><span th:text="#{site.credit}">행사 정보 제공: 서울특별시 · 서울문화포털 (공공누리 제1유형)</span><br><span th:text="#{site.verify}">일정과 이용 요금은 방문 전 원본 공고에서 확인해주세요.</span></p><div id="toast" role="status" aria-live="polite"></div></footer>
 </body></html>

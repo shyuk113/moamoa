@@ -63,6 +63,10 @@ public class Contest extends BaseTimeEntity {
 
   private String fee;
 
+  private Double latitude;
+  private Double longitude;
+  private String contactPhone;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
   private ContestSource source;

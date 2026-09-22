@@ -1,0 +1,12 @@
+<!doctype html><html lang="ko" xmlns:th="http://www.thymeleaf.org"><head th:replace="~{layout :: head}"></head><body>
+<header th:replace="~{layout :: nav}"></header><main><h1>리뷰 관리 / Review moderation</h1>
+<nav class="detail-actions"><a href="/admin/reviews?status=PENDING">검토 대기 / Pending</a><a href="/admin/reviews?status=APPROVED">공개 / Published</a><a href="/admin/reviews?status=HIDDEN">비공개 / Hidden</a></nav>
+<p th:if="${reviews.empty}">검토할 리뷰가 없습니다. / No reviews in this queue.</p>
+<article class="review-card" th:each="review:${reviews.content}"><a th:href="@{/contests/{id}(id=${review.contestId})}">행사 보기 / View event</a>
+<p><b th:text="${review.nickname}"></b> · <span th:text="${review.rating}"></span>/5</p><p class="preserve-lines" th:text="${review.body}"></p>
+<form th:attr="data-api=@{/api/admin/reviews/{id}(id=${review.id})}" data-method="PUT" data-kind="moderation" data-reload="true">
+<input type="hidden" name="version" th:value="${review.version}">
+<label>공개 상태 / Status<select name="status"><option value="APPROVED">공개 / Publish</option><option value="HIDDEN">비공개 / Hide</option><option value="PENDING">검토 대기 / Pending</option></select></label>
+<p class="form-message" role="status"></p><button class="button">적용 / Apply</button></form></article>
+<nav class="pagination"><a th:if="${reviews.hasPrevious()}" th:href="@{/admin/reviews(status=${reviewStatus},page=${reviews.number-1})}">← Previous</a><span th:text="${reviews.number+1}"></span><a th:if="${reviews.hasNext()}" th:href="@{/admin/reviews(status=${reviewStatus},page=${reviews.number+1})}">Next →</a></nav>
+</main><footer th:replace="~{layout :: footer}"></footer></body></html>

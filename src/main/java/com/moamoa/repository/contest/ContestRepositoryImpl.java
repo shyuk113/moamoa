@@ -20,8 +20,21 @@ public class ContestRepositoryImpl implements ContestRepositoryCustom {
   public Page<Contest> search(ContestSearchCondition c, Pageable p) {
     var q = QContest.contest;
     var where = new BooleanBuilder(q.endDate.goe(LocalDate.now(clock)));
-    if (c.getKeyword() != null && !c.getKeyword().isBlank())
-      where.and(q.title.containsIgnoreCase(c.getKeyword().trim()));
+    if (c.getKeyword() != null && !c.getKeyword().isBlank()) {
+      var guide = QEventGuide.eventGuide;
+      where.and(
+          q.title
+              .containsIgnoreCase(c.getKeyword().trim())
+              .or(
+                  com.querydsl.jpa.JPAExpressions.selectOne()
+                      .from(guide)
+                      .where(
+                          guide
+                              .contestId
+                              .eq(q.id)
+                              .and(guide.title.containsIgnoreCase(c.getKeyword().trim())))
+                      .exists()));
+    }
     if (c.getCategory() != null) where.and(q.category.eq(c.getCategory()));
     if (c.getRegion() != null) where.and(q.region.eq(c.getRegion()));
     if (c.getDistrict() != null && !c.getDistrict().isBlank())

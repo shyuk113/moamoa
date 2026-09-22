@@ -44,6 +44,17 @@ public class SeoulContestMapper implements ExternalContestMapper<SeoulEvent> {
     String portal = safeUrl(raw.portalUrl()), original = safeUrl(raw.originalUrl());
     c.setOriginalUrl(portal != null ? portal : original);
     c.setImageUrl(safeUrl(raw.imageUrl()));
+    c.setContactPhone(limit(raw.inquiry(), 255));
+    // Optional bad coordinates must not discard an otherwise usable event. Seoul bounds
+    // also reject zero coordinates and accidentally swapped latitude/longitude.
+    try {
+      double lat = Double.parseDouble(raw.latitude()), lon = Double.parseDouble(raw.longitude());
+      if (lat >= 33 && lat <= 39 && lon >= 124 && lon <= 132) {
+        c.setLatitude(lat);
+        c.setLongitude(lon);
+      }
+    } catch (NullPointerException | NumberFormatException ignored) {
+    }
     c.setSource(ContestSource.SEOUL_OPENAPI);
     // The API exposes no ID. Prefer the portal's event-specific URL; fallback cannot identify
     // renamed events.

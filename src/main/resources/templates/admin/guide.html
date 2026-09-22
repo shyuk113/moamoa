@@ -1,0 +1,31 @@
+<!doctype html><html lang="ko" xmlns:th="http://www.thymeleaf.org"><head th:replace="~{layout :: head}"></head><body>
+<header th:replace="~{layout :: nav}"></header><main>
+<a th:href="@{/contests/{id}(id=${event.id})}">← 행사 상세 / Event detail</a>
+<h1>방문 안내·번역 편집 / Guide & translation</h1><h2 th:text="${event.title}"></h2>
+<p>확인한 정보만 입력하세요. 빈 항목은 원본 정보 또는 '정보 미제공'으로 표시됩니다. 수집 작업은 이 안내를 덮어쓰지 않습니다.</p>
+<p>Enter verified information only. Blank fields fall back to the original listing. Imported updates never overwrite this guide.</p>
+<nav class="detail-actions"><a th:href="@{/admin/contests/{id}/guide(id=${event.id},language='ko')}">한국어·공통 정보</a><a th:href="@{/admin/contests/{id}/guide(id=${event.id},language='en')}">English translation</a></nav>
+<form class="guide-editor" th:object="${guide}" th:attr="data-api=@{/api/admin/contests/{id}/guide/{language}(id=${event.id},language=${guide.language})}" data-method="PUT" data-kind="guide">
+<p>현재 언어 / Language: <b th:text="${guide.language}"></b></p>
+<label>제목 / Title<input name="title" th:value="*{title}" maxlength="1000"></label>
+<label>소개 / Description<textarea name="description" th:text="*{description}" maxlength="12000" rows="6"></textarea></label>
+<label>장소 / Venue<input name="place" th:value="*{place}" maxlength="1000"></label>
+<label>요금 / Admission<input name="fee" th:value="*{fee}" maxlength="1000"></label>
+<label>참여 대상 / Eligibility<input name="eligibility" th:value="*{eligibility}" maxlength="1000"></label>
+<label>주소 / Address<input name="address" th:value="*{address}" maxlength="1000"></label>
+<label>대중교통 / Public transport<textarea name="transit" th:text="*{transit}" maxlength="3000"></textarea></label>
+<label>주차 / Parking<textarea name="parking" th:text="*{parking}" maxlength="3000"></textarea></label>
+<label>예약 방법 / Reservations<textarea name="booking" th:text="*{booking}" maxlength="3000"></textarea></label>
+<label>휠체어·유아시설 / Accessibility & family facilities<textarea name="accessibility" th:text="*{accessibility}" maxlength="3000"></textarea></label>
+<fieldset th:if="${guide.language == 'ko'}"><legend>언어 공통 정보 / Shared across languages</legend>
+<label>문의 전화 / Contact<input name="contactPhone" th:value="*{contactPhone}" maxlength="255"></label>
+<label>이메일 / Email<input name="contactEmail" type="email" th:value="*{contactEmail}" maxlength="254"></label>
+<label>위도 / Latitude<input name="latitude" type="number" step="any" min="-90" max="90" th:value="*{latitude}"></label>
+<label>경도 / Longitude<input name="longitude" type="number" step="any" min="-180" max="180" th:value="*{longitude}"></label>
+<label>사진 HTTPS URL (줄당 1개, 최대 8개) / Image URLs<textarea name="gallery" th:text="*{gallery}" maxlength="20000" rows="5"></textarea></label>
+<label>YouTube 영상 ID (11자리) / Video ID<input name="videoId" th:value="*{videoId}" pattern="[A-Za-z0-9_-]{11}" maxlength="11"></label>
+<label>미디어 출처·사용 권한 / Media attribution & permission<input name="attribution" th:value="*{attribution}" maxlength="1000"></label>
+</fieldset>
+<label>확인한 정보 출처 URL / Verified source URL<input name="sourceUrl" type="url" th:value="*{sourceUrl}" maxlength="2000" required></label>
+<p class="form-message" role="status"></p><button class="button">저장 / Save</button>
+</form></main><footer th:replace="~{layout :: footer}"></footer></body></html>

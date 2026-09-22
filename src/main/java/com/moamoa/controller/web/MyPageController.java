@@ -12,16 +12,23 @@ import org.springframework.web.bind.annotation.*;
 public class MyPageController {
   private final ContestQueryService contests;
   private final UserService users;
+  private final com.moamoa.service.contest.EventGuideService guides;
 
-  public MyPageController(ContestQueryService contests, UserService users) {
+  public MyPageController(
+      ContestQueryService contests,
+      UserService users,
+      com.moamoa.service.contest.EventGuideService guides) {
     this.contests = contests;
     this.users = users;
+    this.guides = guides;
   }
 
   @GetMapping("/mypage/favorites")
-  public String favorites(@AuthenticationPrincipal CustomUserDetails user, Model model) {
+  public String favorites(
+      @AuthenticationPrincipal CustomUserDetails user, Model model, java.util.Locale locale) {
     var events = contests.favorites(user.id());
     model.addAttribute("events", events);
+    model.addAttribute("translatedTitles", guides.titles(events, locale));
     model.addAttribute(
         "favoriteIds",
         events.stream().map(e -> e.getId()).collect(java.util.stream.Collectors.toSet()));
