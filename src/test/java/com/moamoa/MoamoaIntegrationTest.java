@@ -107,6 +107,34 @@ class MoamoaIntegrationTest {
   }
 
   @Test
+  void koreanSelectionOverridesEnglishCookieAndServerLocale() throws Exception {
+    Locale previous = Locale.getDefault();
+    try {
+      Locale.setDefault(Locale.ENGLISH);
+      var response =
+          mvc.perform(
+                  get("/auth/login").param("lang", "ko").cookie(new Cookie("MOAMOA_LANG", "en")))
+              .andExpect(status().isOk())
+              .andExpect(content().string(org.hamcrest.Matchers.containsString("lang=\"ko\"")))
+              .andExpect(content().string(org.hamcrest.Matchers.containsString("행사 둘러보기")))
+              .andExpect(
+                  content()
+                      .string(
+                          org.hamcrest.Matchers.not(
+                              org.hamcrest.Matchers.containsString("Explore events"))))
+              .andReturn();
+      Cookie korean = response.getResponse().getCookie("MOAMOA_LANG");
+      assertThat(korean).isNotNull();
+      mvc.perform(get("/auth/login").cookie(korean))
+          .andExpect(content().string(org.hamcrest.Matchers.containsString("행사 둘러보기")));
+      mvc.perform(get("/auth/login").cookie(korean).param("lang", "en"))
+          .andExpect(content().string(org.hamcrest.Matchers.containsString("Explore events")));
+    } finally {
+      Locale.setDefault(previous);
+    }
+  }
+
+  @Test
   void visitorGuidesRequireAdminAndSurviveSourceUpdates() throws Exception {
     var c = event("guide", ContestCategory.ART, 0, 7);
     var ordinary = user("ordinary@example.test");

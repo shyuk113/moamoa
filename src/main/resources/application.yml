@@ -1,6 +1,9 @@
 spring:
   application:
     name: moamoa
+  messages:
+    # Korean lives in the base bundle; never replace it with the server's locale.
+    fallback-to-system-locale: false
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/moamoa}
     username: ${DATABASE_USER:moamoa}
