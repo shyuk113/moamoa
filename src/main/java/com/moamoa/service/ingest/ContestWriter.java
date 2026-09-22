@@ -33,7 +33,8 @@ public class ContestWriter {
       BeanUtils.copyProperties(incoming, old.get(), "id", "createdAt", "updatedAt");
       return Result.UPDATED;
     }
-    if (incoming.getEndDate().isBefore(java.time.LocalDate.now(clock))) return Result.SKIPPED;
+    if (incoming.isSourceClosed() || incoming.getEndDate().isBefore(java.time.LocalDate.now(clock)))
+      return Result.SKIPPED;
     var saved = contests.saveAndFlush(incoming);
     events.publishEvent(new ContestCreatedEvent(saved.getId()));
     return Result.ADDED;

@@ -19,7 +19,8 @@ public class ContestRepositoryImpl implements ContestRepositoryCustom {
 
   public Page<Contest> search(ContestSearchCondition c, Pageable p) {
     var q = QContest.contest;
-    var where = new BooleanBuilder(q.endDate.goe(LocalDate.now(clock)));
+    var where =
+        new BooleanBuilder(q.endDate.goe(LocalDate.now(clock)).and(q.sourceClosed.isFalse()));
     if (c.getKeyword() != null && !c.getKeyword().isBlank()) {
       var guide = QEventGuide.eventGuide;
       where.and(

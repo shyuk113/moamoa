@@ -381,6 +381,59 @@ class MoamoaIntegrationTest {
     mvc.perform(get("/contests/" + c.getId() + "/calendar.ics")).andExpect(status().isBadRequest());
   }
 
+  @Test
+  void koccaNoticesReuseSearchFavoritesAndNotificationsAndClosedUpdatesDisappear()
+      throws Exception {
+    var today = LocalDate.now(clock);
+    var formatter = java.time.format.DateTimeFormatter.BASIC_ISO_DATE;
+    var incoming =
+        new com.moamoa.client.mapper.KoccaContestMapper()
+            .map(
+                new com.moamoa.client.kocca.KoccaNotice(
+                    "콘텐츠 공모 테스트",
+                    "shared",
+                    "자유공모",
+                    "20260901",
+                    "www.kocca.kr/kocca/pims/view.do?intcNo=TEST001",
+                    today.format(formatter),
+                    today.plusDays(3).format(formatter),
+                    "신청 자격은 원본 확인"))
+            .orElseThrow();
+    assertThat(writer.upsert(incoming)).isEqualTo(ContestWriter.Result.ADDED);
+    assertThat(writer.upsert(incoming)).isEqualTo(ContestWriter.Result.UPDATED);
+    var saved = contests.findBySourceAndSourceId(ContestSource.KOCCA, "TEST001").orElseThrow();
+    var u = user("kocca-user@example.test");
+    favoriteService.add(u.getId(), saved.getId());
+    mvc.perform(get("/api/contests").param("category", "CONTEST"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalElements").value(1))
+        .andExpect(jsonPath("$.items[0].source").value("KOCCA"));
+    mvc.perform(get("/contests/" + saved.getId()))
+        .andExpect(status().isOk())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("접수 기간")));
+    mvc.perform(get("/contests").param("category", "CONTEST").param("lang", "en"))
+        .andExpect(status().isOk())
+        .andExpect(
+            content()
+                .string(org.hamcrest.Matchers.containsString("Check region &amp; eligibility")));
+    notifications.deadlines();
+    verify(mail).sendEvents(eq(u.getEmail()), contains("3일"), anyList());
+    incoming.setSourceClosed(true);
+    assertThat(writer.upsert(incoming)).isEqualTo(ContestWriter.Result.UPDATED);
+    reset(mail);
+    notifications.deadlines();
+    verifyNoInteractions(mail);
+    mvc.perform(get("/api/contests").param("category", "CONTEST"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalElements").value(0));
+    mvc.perform(get("/contests/" + saved.getId()))
+        .andExpect(status().isOk())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("접수 마감 마감")));
+    assertThat(favorites.findContestIds(u.getId())).contains(saved.getId());
+    incoming.setSourceId("NEVER_IMPORTED");
+    assertThat(writer.upsert(incoming)).isEqualTo(ContestWriter.Result.SKIPPED);
+  }
+
   private Contest event(String sourceId, ContestCategory category, int start, int end) {
     var c = new Contest();
     c.setSource(ContestSource.SEOUL_OPENAPI);

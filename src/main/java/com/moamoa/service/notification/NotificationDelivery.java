@@ -33,6 +33,8 @@ public class NotificationDelivery {
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void deliver(Long userId, Long contestId, NotificationType type) {
+    var contest = contests.findById(contestId).orElseThrow();
+    if (contest.isSourceClosed()) return;
     var user = users.findById(userId).orElseThrow();
     var actual =
         type == NotificationType.NEW_CONTEST
@@ -46,7 +48,7 @@ public class NotificationDelivery {
       mail.sendEvents(
           user.getEmail(),
           actual == NotificationType.DEADLINE ? "[moamoa] 마감·종료 3일 전 알림" : "[moamoa] 관심 분야 새 소식",
-          List.of(contests.findById(contestId).orElseThrow()));
+          List.of(contest));
       entry.setSuccess(true);
       entry.setSentAt(clock.instant());
     } catch (RuntimeException ex) {
@@ -61,8 +63,11 @@ public class NotificationDelivery {
     var u = users.lockById(userId).orElseThrow();
     var pending = logs.findByUserIdAndTypeAndSuccessFalse(userId, NotificationType.PENDING_DIGEST);
     if (pending.isEmpty()) return;
-    var events = contests.findAllById(pending.stream().map(NotificationLog::getContestId).toList());
-    mail.sendEvents(u.getEmail(), "[moamoa] 이번 주 관심 행사 모음", events);
+    var events =
+        contests.findAllById(pending.stream().map(NotificationLog::getContestId).toList()).stream()
+            .filter(c -> !c.isSourceClosed())
+            .toList();
+    if (!events.isEmpty()) mail.sendEvents(u.getEmail(), "[moamoa] 이번 주 관심 행사 모음", events);
     pending.forEach(
         n -> {
           n.setSuccess(true);
