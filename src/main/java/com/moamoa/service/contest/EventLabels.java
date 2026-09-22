@@ -8,6 +8,14 @@ import org.springframework.stereotype.Component;
 
 @Component("eventLabels")
 public class EventLabels {
+  public String location(Contest c, Locale locale) {
+    return c.getRegion() == ContestRegion.SEOUL
+        ? district(c.getDistrict(), locale)
+        : msg(
+            c.getRegion() == ContestRegion.NATIONWIDE ? "region.nationwide" : "region.unknown",
+            locale);
+  }
+
   public String district(String value, Locale locale) {
     if (value == null || value.isBlank()) return msg("site.seoul", locale);
     if (!"en".equals(locale.getLanguage())) return value;
@@ -67,6 +75,8 @@ public class EventLabels {
   }
 
   public String badge(Contest c, LocalDate today, Locale l) {
+    if (c.isSourceClosed() || c.getEndDate().isBefore(today))
+      return msg(c.getType() == ContestType.CONTEST ? "badge.closed" : "badge.ended", l);
     return c.isPermanent()
         ? msg("badge.permanent", l)
         : c.getEndDate().isBefore(today) ? msg("badge.ended", l) : c.dayBadge(today);

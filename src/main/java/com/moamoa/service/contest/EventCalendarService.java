@@ -41,7 +41,10 @@ public class EventCalendarService {
             "LOCATION:" + escape(c.getPlace()),
             "DESCRIPTION:"
                 + escape(
-                    "행사 운영 기간이며 예약이 아닙니다. Event dates only; this is not a reservation.\n"
+                    (c.getType() == com.moamoa.domain.contest.ContestType.CONTEST
+                            ? "접수 기간이며 신청이 아닙니다. Application period only; this does not submit an"
+                                + " application.\n"
+                            : "행사 운영 기간이며 예약이 아닙니다. Event dates only; this is not a reservation.\n")
                         + java.util.Objects.toString(c.getOriginalUrl(), "")),
             "END:VEVENT",
             "END:VCALENDAR"));

@@ -5,7 +5,7 @@
 
 추가로 방문 안내·지도·갤러리·영상, 한국어/영어 화면, 승인된 리뷰·평점, 비슷한 행사 추천과 일정 공유를 제공합니다.
 관리자 권한 지정과 정보 입력 방법은 [방문 경험 운영 안내](docs/event-experience.md)를 참고하세요.
-중국어·일본어와 KOCCA 실연동은 후속 단계입니다.
+중국어·일본어는 후속 단계입니다. KOCCA 공모전·지원사업은 승인된 인증키로 수집합니다.
 
 ## 실행
 
@@ -15,7 +15,7 @@ Java 21과 Docker Desktop(Linux containers)이 필요합니다.
 docker compose up -d
 $env:JAVA_HOME = "$env:USERPROFILE\.jdks\ms-21.0.11" # 또는 설치된 Java 21 경로
 .\gradlew.bat test bootJar
-.\scripts\start-local.ps1 -ApiKeyFile '서울시 키가 저장된 파일 경로' -SyncOnStart
+.\scripts\start-local.ps1 -ApiKeyFile '서울시 키 파일 경로' -KoccaApiKeyFile 'KOCCA 키 파일 경로' -SyncOnStart
 ```
 
 - 웹사이트: http://localhost:8080
@@ -37,6 +37,9 @@ IDE 실행 시 `SEOUL_API_KEY` 환경변수를 지정할 수 있습니다.
 | 환경변수 | 용도 |
 |---|---|
 | SEOUL_API_KEY | 서울 열린데이터광장 일반 인증키 |
+| KOCCA_API_KEY | KOCCA에서 발급한 지원사업 API 키 |
+| KOCCA_ENABLED | KOCCA 수집 사용 여부, 기본 true (키가 없으면 비활성화) |
+| KOCCA_MAX_PAGES | 진행/종료 공고별 최대 페이지 수, 기본 200. 초과하면 부분 저장 없이 실패 |
 | SYNC_ON_START | true이면 앱 시작 후 수집, 기본 false |
 | SCHEDULING_ENABLED | 수집/알림 스케줄 사용, 기본 true |
 | JWT_SECRET | 32바이트 이상 서명 비밀값. 미설정 시 임시 키를 생성하여 재시작 시 로그인 해제 |
@@ -61,14 +64,14 @@ IDE 실행 시 `SEOUL_API_KEY` 환경변수를 지정할 수 있습니다.
 - 행사별 서울문화포털 URL을 해시하여 소스 ID로 사용합니다. URL이 없으면 제목/장소/시작일을 사용하므로, 이 경우 제목 변경 시 중복이 생길 수 있습니다.
 - 매일 06:00/18:00 KST 수집, 매일 09:00 종료·마감 3일 전 알림, 월요일 09:00 주간 알림.
 - 실패 알림은 실패 상태로 남습니다. SMTP가 수락한 뒤 DB 커밋이 실패하는 상황까지 정확히 한 번의 이메일 전송을 보장하지는 않습니다.
-- **KOCCA 인증키 승인은 완료**되었습니다. 실연동은 v2 이후 별도 변경으로 진행하며, 실제 API 검증 후 ExternalContestClient 구현과 매퍼를 추가합니다. 공모전 관심분야는 미리 저장할 수 있습니다.
+- **KOCCA 공모전·지원사업 연동:** 진행·종료 공고를 함께 조회하며 접수 기간과 원본 분류를 보존합니다. 신청 자격·지역·제출 방법은 원본 공고에서 확인합니다. [연동·운영 문서](docs/kocca-integration.md)를 참고하세요.
 
 ## 테스트
 
 `gradlew.bat test`는 JUnit + Testcontainers PostgreSQL을 실행합니다. H2 대체나 Docker 부재 시 자동 건너뛰기는 없습니다.
 실제 외부 API/운영 SMTP에는 테스트가 접속하지 않습니다.
 
-2026-09-22 자동 테스트 34개 통과(실패/오류/건너뛰기 0개).
+2026-09-22 KOCCA 연동 포함 자동 테스트 41개 통과(실패/오류/건너뛰기 0개).
 
 검증 범위: 분류/링크 안전성/D-day/JWT, PostgreSQL Flyway/동적 검색/업서트,
 HTTP 회원가입→로그인→즐겨찾기→관심분야, CSRF/잠금/재설정 만료·재사용·JWT 무효화,

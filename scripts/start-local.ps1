@@ -1,5 +1,6 @@
 param(
     [string]$ApiKeyFile,
+    [string]$KoccaApiKeyFile,
     [switch]$SyncOnStart,
     [switch]$Background
 )
@@ -10,6 +11,13 @@ if ($ApiKeyFile) {
     $keyValue = ($keyContents -replace '^[^=\r\n]+=', '').Trim().Trim('"').Trim("'")
     if ($keyValue -notmatch '^[A-Za-z0-9]+$') { throw 'API key file must contain one key or SEOUL_API_KEY=value.' }
     $env:SEOUL_API_KEY = $keyValue
+}
+if ($KoccaApiKeyFile) {
+    $koccaContents = (Get-Content -LiteralPath $KoccaApiKeyFile -Raw).Trim()
+    $koccaValue = ($koccaContents -replace '^KOCCA_API_KEY\s*=', '').Trim().Trim('"').Trim("'")
+    if ($koccaValue -notmatch '^[A-Za-z0-9+/=_%-]+$') { throw 'KOCCA key file must contain one key or KOCCA_API_KEY=value.' }
+    # Accept both raw and percent-encoded keys without converting literal plus signs.
+    $env:KOCCA_API_KEY = [uri]::UnescapeDataString($koccaValue)
 }
 $env:SYNC_ON_START = if ($SyncOnStart) { 'true' } else { 'false' }
 $listenPort = if ($env:PORT) { $env:PORT } else { '8080' }

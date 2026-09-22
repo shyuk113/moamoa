@@ -74,6 +74,9 @@ public class Contest extends BaseTimeEntity {
   @Column(nullable = false, length = 64)
   private String sourceId;
 
+  @Column(nullable = false)
+  private boolean sourceClosed;
+
   public boolean isPermanent() {
     return type != ContestType.CONTEST && LocalDate.of(2099, 12, 31).equals(endDate);
   }
@@ -87,6 +90,7 @@ public class Contest extends BaseTimeEntity {
   }
 
   public String dayBadge(LocalDate today) {
+    if (sourceClosed) return type == ContestType.CONTEST ? "마감" : "종료";
     if (isPermanent()) return "상설";
     long days = ChronoUnit.DAYS.between(today, endDate);
     return days < 0 ? (type == ContestType.CONTEST ? "마감" : "종료") : "D-" + days;

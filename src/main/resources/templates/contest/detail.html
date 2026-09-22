@@ -7,7 +7,7 @@
   <div><p class="eyebrow" th:text="${@eventLabels.category(event.category,#locale)}"></p><h1 th:text="${guide.title}"></h1>
     <p class="hint" th:if="${guide.originalLanguage}" th:text="#{detail.fallback}"></p>
     <span class="badge" th:text="|${@eventLabels.dateLabel(event,#locale)} ${@eventLabels.badge(event,today,#locale)}|"></span>
-    <dl><dt th:text="#{detail.period}"></dt><dd th:text="${@eventLabels.period(event,#locale)}"></dd>
+    <dl><dt th:if="${event.source.name() == 'KOCCA'}" th:text="#{detail.noticeKind}"></dt><dd th:if="${event.source.name() == 'KOCCA'}" th:text="${event.originalCategory}"></dd><dt th:text="${event.type.name() == 'CONTEST' ? #messages.msg('detail.applicationPeriod') : #messages.msg('detail.period')}"></dt><dd th:text="${@eventLabels.period(event,#locale)}"></dd>
       <dt th:text="#{detail.place}"></dt><dd th:text="${guide.place ?: #messages.msg('detail.unknown')}"></dd>
       <dt th:text="#{detail.eligibility}"></dt><dd th:text="${guide.eligibility ?: #messages.msg('detail.unknown')}"></dd>
       <dt th:text="#{detail.fee}"></dt><dd th:text="${guide.fee ?: #messages.msg('detail.unknown')}"></dd></dl>
@@ -16,12 +16,12 @@
     <p class="hint" th:text="#{detail.caution}"></p>
     <div class="detail-actions"><button class="button secondary" data-share th:text="#{share.button}"></button><button class="text-button" data-copy-link th:text="#{share.copy}"></button>
       <a th:unless="${event.permanent}" th:href="@{/contests/{id}/calendar.ics(id=${event.id})}" th:text="#{share.calendar}"></a></div>
-    <p class="hint" th:text="${event.permanent ? #messages.msg('share.permanent') : #messages.msg('share.note')}"></p>
+    <p class="hint" th:text="${event.permanent ? #messages.msg('share.permanent') : event.type.name() == 'CONTEST' ? #messages.msg('share.applicationNote') : #messages.msg('share.note')}"></p>
     <a th:if="${isAdmin}" th:href="@{/admin/contests/{id}/guide(id=${event.id})}" th:text="#{detail.edit}"></a>
   </div>
 </section>
-<section class="description"><h2 th:text="#{detail.about}"></h2><p th:text="${guide.description ?: #messages.msg('detail.unknown')}"></p></section>
-<section class="visit-guide"><h2 th:text="#{detail.visit}"></h2>
+<section class="description"><h2 th:text="${event.type.name() == 'CONTEST' ? #messages.msg('detail.contestAbout') : #messages.msg('detail.about')}"></h2><p th:text="${guide.description ?: #messages.msg('detail.unknown')}"></p></section>
+<section class="visit-guide" th:if="${event.type.name() != 'CONTEST' or guide.transit != null or guide.parking != null or guide.booking != null or guide.contactPhone != null or guide.contactEmail != null or guide.accessibility != null or guide.address != null}"><h2 th:text="#{detail.visit}"></h2>
   <dl>
     <dt th:text="#{detail.transit}"></dt><dd th:text="${guide.transit ?: #messages.msg('detail.unknown')}"></dd>
     <dt th:text="#{detail.parking}"></dt><dd th:text="${guide.parking ?: #messages.msg('detail.unknown')}"></dd>
@@ -32,10 +32,10 @@
     <dt th:text="#{detail.address}"></dt><dd th:text="${guide.address ?: #messages.msg('detail.unknown')}"></dd>
   </dl><p class="source" th:if="${guide.updatedAt != null}"><span th:text="#{detail.verified}"></span>: <time th:text="${guide.updatedAt}"></time> · <a th:href="${guide.sourceUrl}" target="_blank" rel="noopener noreferrer" th:text="#{detail.source}"></a></p>
 </section>
-<section><h2 th:text="#{detail.map}"></h2><div th:if="${guide.mapUrl != null}" class="embed-block"><button class="button secondary" th:attr="data-embed=${guide.mapUrl}" th:text="#{detail.loadMap}"></button><iframe hidden title="OpenStreetMap" loading="lazy" referrerpolicy="no-referrer"></iframe></div>
+<section th:if="${event.type.name() != 'CONTEST' or guide.mapSearchUrl != null}"><h2 th:text="#{detail.map}"></h2><div th:if="${guide.mapUrl != null}" class="embed-block"><button class="button secondary" th:attr="data-embed=${guide.mapUrl}" th:text="#{detail.loadMap}"></button><iframe hidden title="OpenStreetMap" loading="lazy" referrerpolicy="no-referrer"></iframe></div>
   <p th:if="${guide.mapUrl == null}" th:text="#{detail.mapMissing}"></p><a th:if="${guide.mapSearchUrl != null}" th:href="${guide.mapSearchUrl}" target="_blank" rel="noopener noreferrer" th:text="#{detail.mapSearch}"></a>
 </section>
-<section><h2 th:text="#{detail.gallery}"></h2><p th:if="${#lists.isEmpty(guide.gallery) and guide.videoUrl == null}" th:text="#{detail.noMedia}"></p>
+<section th:if="${event.type.name() != 'CONTEST' or !#lists.isEmpty(guide.gallery) or guide.videoUrl != null}"><h2 th:text="#{detail.gallery}"></h2><p th:if="${#lists.isEmpty(guide.gallery) and guide.videoUrl == null}" th:text="#{detail.noMedia}"></p>
   <div class="gallery"><a th:each="photo:${guide.gallery}" th:href="${photo}" target="_blank" rel="noopener noreferrer"><img th:src="${photo}" th:alt="${guide.title}" loading="lazy" referrerpolicy="no-referrer"></a></div>
   <div th:if="${guide.videoUrl != null}" class="embed-block"><button class="button secondary" th:attr="data-embed=${guide.videoUrl}" th:text="#{detail.loadVideo}"></button><iframe hidden th:title="${guide.title}" loading="lazy" allow="fullscreen; encrypted-media" allowfullscreen referrerpolicy="no-referrer"></iframe></div>
   <p class="source" th:if="${guide.attribution != null}"><span th:text="#{detail.attribution}"></span>: <span th:text="${guide.attribution}"></span></p>
@@ -53,5 +53,5 @@
     <button th:if="${reviewOverview.own != null}" class="text-button" th:attr="data-delete-review=${reviewOverview.own.id}" th:text="#{review.delete}"></button>
   </div><a th:if="${currentUser == null}" href="/auth/login" th:text="#{review.login}"></a>
 </section>
-<section th:unless="${#lists.isEmpty(related)}"><h2 th:text="#{related.heading}"></h2><p class="hint" th:text="#{related.reason}"></p><div class="related-grid"><a class="review-card" th:each="item:${related}" th:href="@{/contests/{id}(id=${item.id})}"><h3 th:text="${relatedTitles.getOrDefault(item.id,item.title)}"></h3><p th:text="${@eventLabels.period(item,#locale)}"></p><span th:text="${@eventLabels.district(item.district,#locale)}"></span></a></div></section>
+<section th:unless="${#lists.isEmpty(related)}"><h2 th:text="#{related.heading}"></h2><p class="hint" th:text="#{related.reason}"></p><div class="related-grid"><a class="review-card" th:each="item:${related}" th:href="@{/contests/{id}(id=${item.id})}"><h3 th:text="${relatedTitles.getOrDefault(item.id,item.title)}"></h3><p th:text="${@eventLabels.period(item,#locale)}"></p><span th:text="${@eventLabels.location(item,#locale)}"></span></a></div></section>
 </main><footer th:replace="~{layout :: footer}"></footer></body></html>

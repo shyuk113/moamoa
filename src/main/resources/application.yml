@@ -35,4 +35,6 @@ app:
   scheduling-enabled: ${SCHEDULING_ENABLED:true}
   seoul-api-key: ${SEOUL_API_KEY:}
   sync-on-start: ${SYNC_ON_START:false}
-  kocca-enabled: false
+  kocca-api-key: ${KOCCA_API_KEY:}
+  kocca-enabled: ${KOCCA_ENABLED:true}
+  kocca-max-pages: ${KOCCA_MAX_PAGES:200}
